@@ -22,8 +22,8 @@
     "motion": "^12.34.3",
     "nodemailer": "^8.0.3",
     "qrcode.react": "^4.2.0",
-    "react": "^19.2.1",
-    "react-dom": "^19.2.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "react-signature-canvas": "^1.0.6",
     "trim-canvas": "^0.1.2",
     "tsx": "^4.21.0"
