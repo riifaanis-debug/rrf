@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email", "description": "User email address" },
+        "fullName": { "type": "string", "description": "User's full name" },
+        "nationalId": { "type": "string", "description": "Saudi National ID or Iqama" },
+        "mobile": { "type": "string", "description": "Mobile number" },
+        "role": { "type": "string", "enum": ["admin", "client"], "description": "User role" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Account creation date" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Contract": {
+      "title": "Contract",
+      "description": "Signed contract details",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "UID of the user who signed the contract" },
+        "clientFileNumber": { "type": "string", "description": "Client file number" },
+        "unifiedContractNumber": { "type": "string", "description": "Unified contract number" },
+        "fullName": { "type": "string", "description": "Full name on contract" },
+        "nationalId": { "type": "string", "description": "National ID on contract" },
+        "mobile": { "type": "string", "description": "Mobile number on contract" },
+        "type": { "type": "string", "description": "Contract type (Waive/Reschedule)" },
+        "financingInstitutionName": { "type": "string", "description": "Financing institution name" },
+        "productType": { "type": "string", "description": "Product type" },
+        "accountNumber": { "type": "string", "description": "Account number" },
+        "amount": { "type": "string", "description": "Amount" },
+        "allProducts": { "type": "array", "items": { "type": "object" }, "description": "List of all products" },
+        "products": { "type": "array", "items": { "type": "object" }, "description": "List of products from form" },
+        "region": { "type": "string", "description": "Region" },
+        "city": { "type": "string", "description": "City" },
+        "summary": { "type": "string", "description": "Summary" },
+        "status": { "type": "string", "enum": ["pending", "signed"], "description": "Contract status" },
+        "signatureDate": { "type": "string", "description": "Date of signature" },
+        "signatureImgUrl": { "type": "string", "description": "Base64 signature image" },
+        "pdfUrl": { "type": "string", "description": "Base64 PDF content" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Contract creation date" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update date" }
+      },
+      "required": ["userId", "clientFileNumber", "unifiedContractNumber", "fullName", "nationalId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/contracts/{contractId}": {
+      "schema": "Contract",
+      "description": "Signed contracts"
+    }
+  }
+}

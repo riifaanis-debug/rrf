@@ -1,0 +1,145 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId} (matches request.auth.uid)
+    // Fields:
+    //   - uid: string (required) - Firebase Auth UID
+    //   - email: string (required) - User email
+    //   - fullName: string (optional) - User's full name
+    //   - nationalId: string (optional) - Saudi National ID
+    //   - mobile: string (optional) - Mobile number
+    //   - role: string (required) - 'admin' or 'client'
+    //   - createdAt: timestamp (required) - Account creation date
+    //
+    // Collection: contracts
+    // Document ID: {contractId}
+    // Fields:
+    //   - userId: string (required) - UID of the user who signed
+    //   - clientFileNumber: string (required) - Client file number
+    //   - unifiedContractNumber: string (required) - Unified contract number
+    //   - fullName: string (required) - Full name on contract
+    //   - nationalId: string (required) - National ID on contract
+    //   - mobile: string (optional) - Mobile number on contract
+    //   - type: string (optional) - Contract type
+    //   - financingInstitutionName: string (optional) - Financing institution name
+    //   - productType: string (optional) - Product type
+    //   - accountNumber: string (optional) - Account number
+    //   - amount: string (optional) - Amount
+    //   - allProducts: list (optional) - List of all products
+    //   - products: list (optional) - List of products from form
+    //   - region: string (optional) - Region
+    //   - city: string (optional) - City
+    //   - summary: string (optional) - Summary
+    //   - status: string (optional) - 'pending' or 'signed'
+    //   - signatureDate: string (optional) - Date of signature
+    //   - signatureImgUrl: string (optional) - Base64 signature image
+    //   - pdfUrl: string (optional) - Base64 PDF content
+    //   - createdAt: timestamp (required) - Contract creation date
+    //   - updatedAt: timestamp (required) - Last update date
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "mjooode99999@gmail.com" && request.auth.token.email_verified == true)); // Default admin
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function validStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasOnlyAllowedFields(['uid', 'email', 'fullName', 'nationalId', 'mobile', 'role', 'createdAt']) &&
+             hasRequiredFields(['uid', 'email', 'role', 'createdAt']) &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.email is string && isValidEmail(data.email) &&
+             data.role in ['admin', 'client'] &&
+             data.createdAt is timestamp &&
+             (!('fullName' in data) || validStringLength('fullName', 1, 200)) &&
+             (!('nationalId' in data) || validStringLength('nationalId', 1, 20)) &&
+             (!('mobile' in data) || validStringLength('mobile', 1, 20));
+    }
+
+    function isValidContract(data) {
+      return hasOnlyAllowedFields([
+        'userId', 'clientFileNumber', 'unifiedContractNumber', 'fullName', 'nationalId', 
+        'mobile', 'type', 'financingInstitutionName', 'productType', 'accountNumber', 
+        'amount', 'allProducts', 'products', 'region', 'city', 'summary', 'status', 
+        'signatureDate', 'signatureImgUrl', 'pdfUrl', 'createdAt', 'updatedAt'
+      ]) &&
+      hasRequiredFields(['userId', 'clientFileNumber', 'unifiedContractNumber', 'fullName', 'nationalId', 'createdAt']) &&
+      data.userId is string && data.userId == request.auth.uid &&
+      validStringLength('clientFileNumber', 1, 100) &&
+      validStringLength('unifiedContractNumber', 1, 100) &&
+      validStringLength('fullName', 1, 200) &&
+      validStringLength('nationalId', 1, 20) &&
+      data.createdAt is timestamp &&
+      (!('updatedAt' in data) || data.updatedAt is timestamp) &&
+      (!('signatureImgUrl' in data) || data.signatureImgUrl.size() < 1048576) && // Limit base64 size
+      (!('pdfUrl' in data) || data.pdfUrl.size() < 1048576);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == 'client' || isAdmin());
+      allow update: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdmin());
+    }
+
+    match /contracts/{contractId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidContract(request.resource.data);
+      allow update: if isAdmin(); // Only admins can update contracts after they are signed
+      allow delete: if isAdmin();
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
